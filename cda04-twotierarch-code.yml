@@ -1,0 +1,321 @@
+#cda04-twotierarch
+#deploying requires "--parameters ParameterKey=DBPassword,ParameterValue=[SOMETHING]" option for the rds db instance master pw
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: The CloudFormation template in YAML for CDA04-CloudFormation use case.
+
+Resources:
+
+  #vpc
+  CDA04VPC:
+    Type: AWS::EC2::VPC
+    Properties:  
+      CidrBlock: 10.10.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: CDA04VPC
+
+  #public subnet 1
+  CDA04PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CDA04VPC
+      CidrBlock: 10.10.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: us-east-1a
+      Tags:
+          - Key: Name
+            Value: CDA04PublicSubnet1
+
+
+  #public subnet 2
+  CDA04PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CDA04VPC
+      CidrBlock: 10.10.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: us-east-1b
+      Tags:
+        - Key: Name
+          Value: CDA04PublicSubnet2
+
+
+
+  #private subnet 1
+  CDA04PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CDA04VPC
+      CidrBlock: 10.10.3.0/24
+      AvailabilityZone: us-east-1c
+      Tags:
+        - Key: Name
+          Value: CDA04PrivateSubnet1
+
+
+  #private subnet 2
+  CDA04PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CDA04VPC
+      CidrBlock: 10.10.4.0/24
+      AvailabilityZone: us-east-1d
+      Tags:
+        - Key: Name
+          Value: CDA04PrivateSubnet2
+
+
+  #igw
+  CDA04InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: CDA04InternetGateway
+
+
+ #igw attachment
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref CDA04VPC
+      InternetGatewayId: !Ref CDA04InternetGateway
+
+  #route table
+  CDA04RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref CDA04VPC
+      Tags: 
+        - Key: Name
+          Value: CDA04RouteTable
+
+  #route to internet
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties: 
+      RouteTableId: !Ref CDA04RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref CDA04InternetGateway
+
+
+  # Public Subnet Route Table Associations
+  Subnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CDA04PublicSubnet1
+      RouteTableId: !Ref CDA04RouteTable
+
+  Subnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref CDA04PublicSubnet2
+      RouteTableId: !Ref CDA04RouteTable
+
+
+  #key pair
+  CDA04KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:  
+      KeyName: CDA04-keypair
+      KeyType: rsa
+
+  #launch template
+  CDA04LaunchTemplate: 
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        KeyName: CDA04-keypair
+        ImageId: ami-04b4f1a9cf54c11d0 #Ubuntu Server 24.04
+        SecurityGroupIds:
+          - !Ref CDA04WebserverSecurityGroup
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+
+            sudo apt update
+
+
+            sudo apt install -y apache2 php libapache2-mod-php php-mysql php-xml php-gd unzip
+
+            sudo systemctl start apache2
+            sudo systemctl enable apache2
+
+            cd /var/www/html
+            sudo curl -L -o joomla.zip https://github.com/joomla/joomla-cms/releases/download/3.9.28/Joomla_3.9.28-Stable-Full_Package.zip
+
+            sudo unzip joomla.zip
+
+            sudo chown -R www-data:www-data /var/www/html
+            sudo chmod -R 755 /var/www/html
+
+            sudo rm /var/www/html/index.html
+
+
+            sudo nano /etc/apache2/mods-enabled/dir.conf
+
+            DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm
+
+            sudo systemctl restart apache2
+
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: CDA04-ApacheInstance
+      LaunchTemplateName: CDA04LaunchTemplate
+
+
+
+  #webserver sg
+  CDA04WebserverSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP and MySQL access only from the ALB
+      VpcId: !Ref CDA04VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref CDA04ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref CDA04ALBSecurityGroup
+
+      Tags:
+        - Key: Name
+          Value: CDA04WebserverSecurityGroup
+
+
+  #asg
+  CDA04ASG: 
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref CDA04LaunchTemplate
+        Version: !GetAtt  CDA04LaunchTemplate.LatestVersionNumber
+      MinSize: 2
+      DesiredCapacity: 2
+      MaxSize: 5
+      VPCZoneIdentifier:
+        - !Ref CDA04PublicSubnet1
+        - !Ref CDA04PublicSubnet2
+      TargetGroupARNs:
+        - !Ref CDA04TargetGroup
+      Tags: 
+        - Key: Name
+          Value: CDA04ASG
+          PropagateAtLaunch: true
+
+
+  # Target Group
+  CDA04TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: CDA04TargetGroup
+      Protocol: HTTP
+      Port: 80
+      VpcId: !Ref CDA04VPC
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200
+
+
+  #alb
+  CDA04LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      Name: CDA04ApplicationLoadBalancer
+      Scheme: internet-facing
+      Subnets:
+        - !Ref CDA04PublicSubnet1
+        - !Ref CDA04PublicSubnet2
+      SecurityGroups: 
+        - !Ref CDA04ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: CDA04LoadBalancer
+
+
+  #alb sg
+  CDA04ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Allow HTTP traffic from anywhere to ALB
+      VpcId: !Ref CDA04VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: CDA04ALBSecurityGroup
+
+  #alb listener
+  CDA04ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      DefaultActions: 
+        - Type: forward
+          TargetGroupArn: !Ref CDA04TargetGroup
+      LoadBalancerArn: !Ref CDA04LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  #rds db
+  RDSDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: db.t3.micro
+      Engine: mysql
+      MasterUsername: admin
+      MasterUserPassword: !Ref DBPassword
+      AllocatedStorage: 20
+      DBName: CDA04DB
+      VPCSecurityGroups:
+        - !Ref CDA04WebserverSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+
+  #rds subnet group?
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for RDS"
+      SubnetIds:
+        - !Ref CDA04PrivateSubnet1
+        - !Ref CDA04PrivateSubnet2
+
+
+Parameters:
+  DBPassword:
+    Description: "The master password for the RDS db"
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: "[a-zA-Z0-9]*"
+    ConstraintDescription: "Password must be alphanumeric and between 8 and 41 characters"
+
+#outputs (dns url)
+Outputs:
+  ALBDNSName:
+    Description: "DNS name of the Application Load Balancer"
+    Value: !GetAtt CDA04LoadBalancer.DNSName
+    Export:
+      Name: "ALBDNSName"
+
+
