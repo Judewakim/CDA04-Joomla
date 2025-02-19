@@ -310,12 +310,23 @@ Parameters:
     AllowedPattern: "[a-zA-Z0-9]*"
     ConstraintDescription: "Password must be alphanumeric and between 8 and 41 characters"
 
-#outputs (dns url)
+#outputs
 Outputs:
   ALBDNSName:
     Description: "DNS name of the Application Load Balancer"
     Value: !GetAtt CDA04LoadBalancer.DNSName
     Export:
       Name: "ALBDNSName"
-
+  DBName:
+    Value: !Ref DBName
+    Description: "The name of the RDS database"
+  DBUser:
+    Value: !Ref admin
+    Description: "The username for the RDS database"
+  DBPassword:
+    Value: !Ref DBPassword
+    Description: "The password for the RDS database"
+  DBHost:
+    Value: !GetAtt MyRDSInstance.Endpoint.Address
+    Description: "The RDS endpoint"
 
