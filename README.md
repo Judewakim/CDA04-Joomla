@@ -51,11 +51,9 @@ Replace `YourKeyName` with the name of your EC2 Key Pair.
 
 After the stack creation:
 
-1. Retrieve the public DNS of the EC2 instance from the AWS Management Console.
-2. SSH into the instance and verify that `user-data.sh` has correctly installed WordPress.
-3. Ensure `configure_wp_config.sh` has configured the `wp-config.php` file with the correct database details.
-4. Access the WordPress setup wizard by navigating to `http://<EC2-Public-DNS>/wordpress` in your browser.
-5. Follow the on-screen instructions to complete the WordPress installation.
+1. SSH into the instance and run the commands in the `user-data.sh` to install WordPress.
+2. Access the WordPress setup wizard by navigating to `http://<EC2-Public-DNS>/wordpress` in your browser.
+3. Follow the on-screen instructions to complete the WordPress installation.
 
 ## 🗑 Cleanup
 
