@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ssh into instance
+# ssh into the instance
 
 # update and install dependencies
 sudo apt update && sudo apt upgrade -y
@@ -10,7 +10,7 @@ sudo apt install -y mysql-client
 
 # create rds in aws
 
-# connect to rds. THIS LINE MAY NOT WORK BC OF THE PASSWORD WHICH NEEDS TO BE MANUALLY ENTERED
+# connect to rds.
 mysql -h {YOUR-RDS-ENDPOINT} -u {USERNAME} -p {PASSWORD}
 
 # create database inside rds
@@ -20,7 +20,7 @@ GRANT ALL PRIVILEGES ON wordpress_db.* TO 'wordpress_user'@'%';
 FLUSH PRIVILEGES;
 EXIT;
 
-# go to web root directory
+# go to the web root directory
 cd /var/www/html
 
 # remove index.html
@@ -56,9 +56,11 @@ sudo systemctl restart apache2
 # rename the sample config file
 sudo mv /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php
 
-# call the configure_wp_config.sh script, relatively bc they are in the same directory
-echo "Configuring wp-config.php..."
-./configure_wp_config.sh "$DB_NAME" "$DB_USER" "$DB_PASSWORD" "$DB_HOST"
+# Use sed to insert the database values into wp-config.php
+sudo sed -i "s/define( 'DB_NAME', 'database_name_here' );/define( 'DB_NAME', '$DB_NAME' );/" $WP_CONFIG_PATH
+sudo sed -i "s/define( 'DB_USER', 'username_here' );/define( 'DB_USER', '$DB_USER' );/" $WP_CONFIG_PATH
+sudo sed -i "s/define( 'DB_PASSWORD', 'password_here' );/define( 'DB_PASSWORD', '$DB_PASSWORD' );/" $WP_CONFIG_PATH
+sudo sed -i "s/define( 'DB_HOST', 'localhost' );/define( 'DB_HOST', '$DB_HOST' );/" $WP_CONFIG_PATH
 
 #restart apache one last time
 sudo systemctl restart apache2
