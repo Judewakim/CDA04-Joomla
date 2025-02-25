@@ -27,10 +27,3 @@ if [ -f "$WP_CONFIG_PATH" ]; then
 else
     echo "Error: wp-config.php file not found at $WP_CONFIG_PATH"
 fi
-
-
-sudo sed -i "s/define('DB_USER', 'username_here');/define('DB_USER', 'admin');/" /var/www/html/wordpress/wp-config.php
-sudo sed -i "s#define( 'DB_USER', 'username_here' );#define( 'DB_USER', 'admin' );#" /var/www/html/wordpress/wp-config.php
-
-sudo sed -i "s/define('DB_PASSWORD', 'password_here');/define('DB_PASSWORD', 'WCnTbRHMeo2W75Svco0C');/" /var/www/html/wordpress/wp-config.php
-sudo sed -i "s/define('DB_HOST', 'localhost');/define('DB_HOST', 'wordpress-db.crhoi3wv0hh3.us-east-1.rds.amazonaws.com');/" /var/www/html/wordpress/wp-config.php
