@@ -62,11 +62,3 @@ echo "Configuring wp-config.php..."
 
 #restart apache one last time
 sudo systemctl restart apache2
-
-
-
-masterpass:
-WCnTbRHMeo2W75Svco0C
-
-endpoint:
-wordpress-db.crhoi3wv0hh3.us-east-1.rds.amazonaws.com
