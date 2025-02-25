@@ -137,31 +137,6 @@ Resources:
           Fn::Base64: |
             #!/bin/bash
 
-            sudo apt update
-
-
-            sudo apt install -y apache2 php libapache2-mod-php php-mysql php-xml php-gd unzip
-
-            sudo systemctl start apache2
-            sudo systemctl enable apache2
-
-            cd /var/www/html
-            sudo curl -L -o joomla.zip https://github.com/joomla/joomla-cms/releases/download/3.9.28/Joomla_3.9.28-Stable-Full_Package.zip
-
-            sudo unzip joomla.zip
-
-            sudo chown -R www-data:www-data /var/www/html
-            sudo chmod -R 755 /var/www/html
-
-            sudo rm /var/www/html/index.html
-
-
-            sudo nano /etc/apache2/mods-enabled/dir.conf
-
-            DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm
-
-            sudo systemctl restart apache2
-
         TagSpecifications:
           - ResourceType: instance
             Tags:
@@ -185,7 +160,11 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId: !Ref CDA04ALBSecurityGroup
+          SourceSecurityGroupId: !Ref CDA04WebserverSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref CDA04WebserverSecurityGroup
 
       Tags:
         - Key: Name
@@ -199,9 +178,9 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref CDA04LaunchTemplate
         Version: !GetAtt  CDA04LaunchTemplate.LatestVersionNumber
-      MinSize: 2
-      DesiredCapacity: 2
-      MaxSize: 5
+      MinSize: 1
+      DesiredCapacity: 1
+      MaxSize: 3
       VPCZoneIdentifier:
         - !Ref CDA04PublicSubnet1
         - !Ref CDA04PublicSubnet2
@@ -317,15 +296,15 @@ Outputs:
     Value: !GetAtt CDA04LoadBalancer.DNSName
     Export:
       Name: "ALBDNSName"
-  DBName:
-    Value: !Ref DBName
-    Description: "The name of the RDS database"
-  DBUser:
-    Value: !Ref admin
-    Description: "The username for the RDS database"
-  DBPassword:
-    Value: !Ref DBPassword
-    Description: "The password for the RDS database"
+  # DBName:
+  #   Value: !Ref DBName
+  #   Description: "The name of the RDS database"
+  # DBUser:
+  #   Value: !Ref admin
+  #   Description: "The username for the RDS database"
+  # DBPassword:
+  #   Value: !Ref DBPassword
+  #   Description: "The password for the RDS database"
   DBHost:
     Value: !GetAtt MyRDSInstance.Endpoint.Address
     Description: "The RDS endpoint"
